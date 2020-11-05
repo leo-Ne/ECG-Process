@@ -19,9 +19,6 @@ def HP(M:int, Wc:np.float32):
     hp_Wn = Hamming(M) * hp
     return hp_Wn
 
-def MedianFilter(subseq:np.ndarray, v:np.float32):
-    return v - np.median(subseq)
-
 def convolution(x:np.ndarray, h:np.ndarray, M=None):
     if M is None:
         M = np.shape(h)[0]
@@ -29,6 +26,38 @@ def convolution(x:np.ndarray, h:np.ndarray, M=None):
     for i, elm in enumerate(x[x.size-M:]):
         result += elm * h[M-i-1]
     return result
+
+class Pre_filter:
+    def __init__(self, _coefficients=None):
+        if _coefficients is None:
+            _coefficients = [1/3, 1/3, 1/3]
+        coefficients      = np.array(_coefficients, np.float32)
+        self.coefficients = np.squeeze(coefficients)
+        self.filter_l     = np.shape(self.coefficients)[0]
+        # M5_filter
+        self.buf = np.zeros([self.filter_l,], np.float32)
+        self.cnt = 0
+        pass
+
+    def M5filter(self, v):
+        if v is None:
+            print('Eeror data input!')
+            return np.NaN
+        elif v is not None:
+            self.buf[:-1] = self.buf[1:]
+            self.buf[-1]  = v
+            if self.cnt < self.filter_l-1:
+                self.cnt += 1
+                result    = 0.0
+            else:
+                result    = np.sum(self.buf * self.coefficients, dtype=np.float32)
+        return result
+# more graceful style code, but this style has a bug which is not solved yet.
+#            result        = np.matmul(self.buf, self.coefficients.T)
+
+    def MedianFilter(self, subseq:np.ndarray, v:np.float32):
+        return v - np.median(subseq)
+
 
 def testUnit():
     h = Hamming(10)
