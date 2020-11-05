@@ -19,6 +19,9 @@ def HP(M:int, Wc:np.float32):
     hp_Wn = Hamming(M) * hp
     return hp_Wn
 
+def MedianFilter(subseq:np.ndarray, v:np.float32):
+    return v - np.median(subseq)
+
 def convolution(x:np.ndarray, h:np.ndarray, M=None):
     if M is None:
         M = np.shape(h)[0]
