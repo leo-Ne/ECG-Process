@@ -19,11 +19,22 @@ def HP(M:int, Wc:np.float32):
     hp_Wn = Hamming(M) * hp
     return hp_Wn
 
+def convolution(x:np.ndarray, h:np.ndarray, M=None):
+    if M is None:
+        M = np.shape(h)[0]
+    result = 0
+    for i, elm in enumerate(x[x.size-M:]):
+        result += elm * h[M-i-1]
+    return result
+
 def testUnit():
     h = Hamming(10)
     print(h)
     LP(10, np.pi / 2)
     HP(10, np.pi / 2)
+    x = np.array([1, 4, 2, 3], np.float32)
+    h = np.array([2, 4, 1], np.float32)
+    val = convolution(x, h)
     pass
 
 if __name__ == "__main__":
