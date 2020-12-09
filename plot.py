@@ -15,6 +15,7 @@ def paint():
     plt.savefig('result.png', bbox_inches='tight')
     pass
 
+
 def analysis():
     w = np.arange(0, 250,250/30000)
     src = np.load('einthoven_II.npy')
@@ -31,6 +32,7 @@ def analysis():
     plt.plot(w, ft1)
     plt.savefig('ft1.png', bbox_inches='tight')
     pass
+
 
 def analysisFilter():
     M, Wc = 100, np.pi / 25
