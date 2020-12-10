@@ -1,6 +1,11 @@
-# author leo
-# date 2020.11.02
-# python 3.8.6
+#! /use/bin/env python
+''' **************************************
+# Author       :leo-Ne
+# Last modified:2020-12-10 15:53
+# Email        : leo@email.com
+# Filename     :heartrateDetection.py
+# Description  : 
+**************************************'''
 from ecg_gudb_database import GUDb
 from cal_filter_para import Pre_filter
 # from fir_filter_leone import unittest
@@ -9,37 +14,45 @@ from matplotlib import pyplot as plt
 from matplotlib import axes as axs
 
 class heartRateDetection:
-    def __init__(self, _wt=None):
-        # initialization
-        self.ecg_src = None
-        if _wt is None:
-            _wt = 20
-        self.wt = _wt
-        self.signal = None
-        # buffer for next
-        self.buf = None
-        # heartBeatsTimes
-        self.anno = np.zeros([], np.float32)
+    def __init__(self, wt=20, fs=250):
+        """
+        Initialization
+        """
+        self._ecgSrc = None
+        self._signal  = None
+        # Set a buffer to store data when size(data) less than wt
+        self._buffer = None
+        # R peak annotations
+        self.anno    = None
+        # ECG signal process setting
+        self._fs     = fs
+        self._wt     = wt
         # heartRate
-        self.fs   = 250
-        self.rate = 0
-        pass
+        self.rate    = -1
+        return 
 
-    def loadECG(self, subject_number=None, experiment=None):
-        # load ECG data
+    def loadData(self, subject_number=None, experiment=None):
+        """
+        Load the ECG data.
+        File einthoven_ii.npy store the ecg_class.einthoven_II data. 
+        The reson I did this is my slow internet.
+        """
         # ecg_class = GUDb(12, 'walking')
         # print('fs:', ecg_class.fs)
         # einthoven_ii = ecg_class.einthoven_II
+        # self._fs     = ecg_class.fs
         einthoven_ii = np.load(r'einthoven_II.npy')
-        self.ecg_src = einthoven_ii.copy()
-        return einthoven_ii
+        self._ecgSrc = einthoven_ii.copy()
+        del einthoven_ii
+        return
 
-    def pre_process(self, ecg):
-        M5 = np.array([1/5, 1/5, 1/5, 1/5, 1/5], np.float32)
+    def pre_process(self, R=34):
+        M5      = np.ones([5, ], np.float32) / 5.0
         process = Pre_filter(M5)
-        ecg = np.abs(ecg)
+        ecg     = np.abs(self._ecgSrc)
+        
+        # Median filter cuts off DC. 
         signal1 = np.zeros([ecg.shape[0],], np.float32)
-        R = 34
         for i, v in enumerate(ecg):
             if i < R:
                 subseq = ecg[:i+R]
@@ -48,48 +61,48 @@ class heartRateDetection:
             else:
                 subseq = ecg[i-R:i+R]
             signal1[i] = process.MedianFilter(subseq, v)
+        
+        # Mean-5 filter cuts off 50Hz power line interference.
         signal2 = np.zeros([signal1.shape[0], ], np.float32)
         for i, v in enumerate(signal1):
             value = process.M5filter(v)
-            if value == np.NaN:
-                print('Error data input!')
-                break
-            else:
-                signal2[i] = value
-        threshold_value = np.max(signal2) / 2
-        for i, v in enumerate(signal2):
-            if v < threshold_value:
-                signal2[i] = 0
-            else:
-                signal2[i] *= 2
-        self.signal = signal2.copy()
+            signal2[i] = value
+
+        # Cut off the ecg less than 0
+        threshold_value   = np.max(signal2) / 2
+        lowIndex          = np.where(signal2 < threshold_value)
+        signal2[lowIndex] = 0
+        self._signal      = signal2 * 2
         return signal2
 
-    def matched(self, ECG=None):
-        wt = self.wt
-        if ECG is None:
-            ECG = self.signal.copy()
-        i = 0
-        peak = [-1]
-        indx = [-1]
-        Win = np.zeros([wt], np.float32)
-        while i < ECG.shape[0]:
-            if i + wt > ECG.shape[0]: # Save to the buffer.
-                self.buf = ECG[i:].copy()
-                pass
+    def matched(self, ecg=None):
+        """
+        Check R peak location index.
+        """
+        if ecg is None:
+            ecg = self._signal.copy()
+        wt       = self._wt
+
+        peak     = [-1]
+        indx     = [-1]
+        signal_W = np.zeros([wt], np.float32)
+        i        = 0
+        while i < ecg.shape[0]:
+            if i + wt > ecg.shape[0]: # Save to the buffer.
+                self._buffer = ecg[i:].copy()
             else:
-                if i == 0 and self.buf is not None:
-                    l = np.shape(self.buf)[0]
-                    Win[:l] = self.buf[:]
-                    Win[l:] = ECG[:wt-l]
+                if i == 0 and self._buffer is not None:
+                    l = np.shape(self._buffer)[0]
+                    signal_W[:l] = self._buffer[:]
+                    signal_W[l:] = ecg[:wt-l]
                     i += wt-l
                 else:
-                    Win[:] = ECG[i:i+wt]
+                    signal_W[:] = ecg[i:i+wt]
                     i += wt
                 # find max value
 
-                max_val = np.max(Win)
-                index = np.argwhere(Win == max_val)
+                max_val = np.max(signal_W)
+                index = np.argwhere(signal_W == max_val)
                 if max_val == 0:            # R-R
                     if peak[-1] != -1:
                         peak.append(-1)
@@ -103,10 +116,10 @@ class heartRateDetection:
                     elif max_val <= peak[-1]:    # cur_val <= post_value
                         continue
         plt.figure(figsize=(12, 6))
-        plt.plot(self.ecg_src)
+        plt.plot(self._ecgSrc)
         for line in indx:
             plt.vlines(line, -0.02, -0.016, colors='red')
-        plt.show()
+#        plt.show()
         self.anno = np.array(indx, np.float32)
         return indx
 
@@ -124,16 +137,16 @@ class heartRateDetection:
         plt.ylabel('Heart rate / BPM')
         plt.plot(time[1:], heart_rate)
         plt.savefig('heartRate.png', bbox_inches='tight')
-        plt.show()
-        self.rate = rate / self.fs
+#        plt.show()
+        self.rate = rate / self._fs
         return self.rate
 
 
 def unittest():
     # test unit for Class heartRateDetection
-    session = heartRateDetection(_wt=20)
-    ecg = session.loadECG()
-    session.pre_process(ecg)
+    session = heartRateDetection(wt=20)
+    session.loadData()
+    session.pre_process()
     session.matched()
     result = session.calculateHeatrate()
     print(result)
