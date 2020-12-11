@@ -119,16 +119,22 @@ class heartRateDetection:
         return 
 
     def matched_v1(self):
+        """
+        This is very stupid code design!!!!!!!!!!!!!!!! 
+        The data in computer is always digital.
+        """
+        
         ecg = self._ecgSrc.copy()
         threshold_value = self._threshold * 0.5
         ab_Loc = np.squeeze(np.where(ecg == threshold_value))
         ab_Len = np.size(ab_Loc)
 
-        a_Loc  = np.zeros([np.int(ab_Len)/2,], np.int)
-        b_Loc  = np.zeros_like(a_loc)
-        index = np.arange(0, 2*np.size(a_loc),step=2,dtype=np.int)
+        a_Loc  = np.zeros([np.int(ab_Len/2),], np.int)
+        b_Loc  = np.zeros_like(a_Loc)
+        index = np.arange(0, 2*np.size(a_Loc),step=2,dtype=np.int)
         
         # First zero and last zero
+        print(np.shape(ab_Loc))
         first_p      = ab_Loc[0]
         last_p       = ab_Loc[-1]
         first_pValue = ecg[first_p+10]
@@ -146,6 +152,15 @@ class heartRateDetection:
         elif first_pValue < 0 and last_pValue < 0:
             a_Loc = ab_Loc[index[:-1]+1]
             b_Loc = ab_Loc[index[:-1]+2]
+
+        length = b_Loc - a_Loc + 1
+        envelope = np.zeros([np.size(a_Loc), np.max(length)])
+        heartBeatsAnno = np.zeros_like(a_Loc)
+        for i in range(np.size(a_Loc)):
+            envelope[i, :length[i]] = ecg[a_Loc[i]:b_Loc[i]]
+            heartBeatsAnno[i] = a_Loc + np.max(np.where(envelope[i] == np.max(envelope[i])))
+        print("V1 match.")
+        print(heartBeatsAnno.shape)
 
         return 
 
@@ -180,7 +195,8 @@ def unittest():
     session = heartRateDetection(wt,fs)
     session.loadData(filename=ECGFile)
     session.pre_process()
-    session.matched()
+    session.matched_v0()
+    session.matched_v1()
     session.calculateHeatrate()
     return 
 
