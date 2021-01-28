@@ -56,3 +56,7 @@ for s in einthoven_ii:
 z = z*z  #improve S/N
 plt.figure(6)
 plt.plot(z)
+
+
+''' Li is a stupid boy!!'''
+
